@@ -50,13 +50,25 @@
             border-right: 1px solid #eee;
             overflow-y: auto;
             height: 100%;
+            position: relative;
+        }
+
+        .conversation-viewport {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
         }
 
         .conversation-item {
+            height: 60px; /* Fixed height for calculations */
             padding: 1rem;
             cursor: pointer;
             border-bottom: 1px solid #eee;
             transition: background-color 0.2s;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .conversation-item:hover {
@@ -228,10 +240,13 @@
 
     <script>
         const MESSAGES_PER_PAGE = 50;
+        const ITEMS_PER_PAGE = 50;
+        const ITEM_HEIGHT = 60;
         let currentPage = 1;
         let currentUserId = '';
         let allConversations = [];
         let currentConversationId = null;
+        let visibleConversations = [];
         const fileInput = document.getElementById('fileInput');
         const uploadButton = document.getElementById('uploadButton');
         const uploadForm = document.getElementById('uploadForm');
@@ -294,15 +309,48 @@
         function displayConversationList(conversations) {
             const container = document.getElementById('conversations');
             container.innerHTML = `
-                <div class="conversation-list active">
-                    ${conversations.map(conv => `
-                        <div class="conversation-item" onclick="showConversation('${conv.id}')">
-                            ${conv.displayName}
-                        </div>
-                    `).join('')}
+                <div class="conversation-list active" id="conversationList">
+                    <div class="conversation-viewport" id="conversationViewport" style="height: ${conversations.length * ITEM_HEIGHT}px">
+                    </div>
                 </div>
                 <div id="messages"></div>
             `;
+
+            const conversationList = document.getElementById('conversationList');
+            const viewport = document.getElementById('conversationViewport');
+            
+            function renderVisibleConversations() {
+                const scrollTop = conversationList.scrollTop;
+                const containerHeight = conversationList.offsetHeight;
+                
+                const startIndex = Math.floor(scrollTop / ITEM_HEIGHT);
+                const endIndex = Math.min(
+                    startIndex + Math.ceil(containerHeight / ITEM_HEIGHT) + 1,
+                    conversations.length
+                );
+                
+                if (startIndex !== visibleConversations[0]?.index || 
+                    endIndex !== visibleConversations[visibleConversations.length - 1]?.index) {
+                    
+                    const items = conversations.slice(startIndex, endIndex).map((conv, i) => ({
+                        index: startIndex + i,
+                        conversation: conv
+                    }));
+                    
+                    viewport.innerHTML = items.map(item => `
+                        <div class="conversation-item" 
+                             onclick="showConversation('${item.conversation.id}')"
+                             style="position: absolute; top: ${item.index * ITEM_HEIGHT}px; left: 0; right: 0;">
+                            ${item.conversation.displayName}
+                        </div>
+                    `).join('');
+                    
+                    visibleConversations = items;
+                }
+            }
+
+            conversationList.addEventListener('scroll', renderVisibleConversations);
+            renderVisibleConversations();
         }
 
         function showConversation(conversationId, page = 1) {
