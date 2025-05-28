@@ -695,6 +695,13 @@
             });
         }
 
+        function loadMoreMessages() {
+            if (currentConversationId) {
+                currentPage++;
+                showConversation(currentConversationId, currentPage);
+            }
+        }
+
         // Add this intersection observer to implement infinite scroll (optional)
         let observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
