@@ -23,6 +23,64 @@
             padding: 1rem;
             background: white;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .search-container {
+            margin: 0 1rem;
+            position: relative;
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .search-results {
+            position: absolute;
+            top: calc(100% - 1rem);
+            left: 1rem;
+            right: 1rem;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-top: 4px;
+            max-height: 400px;
+            overflow-y: auto;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: none;
+        }
+
+        .search-result-item {
+            padding: 0.8rem;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+
+        .search-result-item:hover {
+            background: #f5f5f5;
+        }
+
+        .search-result-conversation {
+            font-weight: bold;
+            margin-bottom: 0.3rem;
+        }
+
+        .search-result-preview {
+            font-size: 0.9rem;
+            color: #666;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .upload-container {
@@ -214,6 +272,11 @@
             width: 100%;
             margin: 1rem 0;
         }
+
+        @keyframes highlight {
+            0% { background-color: yellow; }
+            100% { background-color: inherit; }
+        }
     </style>
 </head>
 <body>
@@ -229,6 +292,16 @@
                 Process File
             </button>
         </form>
+    </div>
+
+    <div class="search-container">
+        <input 
+            type="text" 
+            class="search-input" 
+            placeholder="Search in all conversations..."
+            id="globalSearch"
+        >
+        <div class="search-results" id="searchResults"></div>
     </div>
     
     <div id="conversations"></div>
@@ -247,6 +320,8 @@
         let allConversations = [];
         let currentConversationId = null;
         let visibleConversations = [];
+        let searchTimeout = null;
+        let searchResults = [];
         const fileInput = document.getElementById('fileInput');
         const uploadButton = document.getElementById('uploadButton');
         const uploadForm = document.getElementById('uploadForm');
@@ -409,30 +484,6 @@
             });
         }
 
-        function renderMessages(messages) {
-            return messages.map(msg => `
-                <div class="message ${msg.from === currentUserId ? 'sent' : 'received'}">
-                    <div class="message-time">${new Date(msg.time).toLocaleString()}</div>
-                    <div class="message-content">${msg.content}</div>
-                </div>
-            `).join('');
-        }
-
-        function loadMoreMessages() {
-            if (currentConversationId) {
-                currentPage++;
-                showConversation(currentConversationId, currentPage);
-            }
-        }
-
-        function showConversationList() {
-            const messagesContainer = document.getElementById('messages');
-            const conversationList = document.querySelector('.conversation-list');
-            
-            messagesContainer.classList.remove('active');
-            conversationList.classList.add('active');
-        }
-
         // Add this intersection observer to implement infinite scroll (optional)
         let observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
@@ -449,6 +500,103 @@
         if (loadMoreButton) {
             observer.observe(loadMoreButton);
         }
+
+        // Add the search functionality
+        function debounce(func, wait) {
+            return function executedFunction(...args) {
+                const later = () => {
+                    searchTimeout = null;
+                    func(...args);
+                };
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(later, wait);
+            };
+        }
+
+        function performSearch(query) {
+            if (!query.trim() || !allConversations.length) {
+                document.getElementById('searchResults').style.display = 'none';
+                return;
+            }
+
+            const results = [];
+            const searchTerm = query.toLowerCase();
+            
+            for (const conv of allConversations) {
+                const matches = conv.messages
+                    .filter(msg => msg.content.toLowerCase().includes(searchTerm))
+                    .slice(0, 3); // Limit matches per conversation
+
+                if (matches.length > 0) {
+                    results.push({
+                        conversationId: conv.id,
+                        conversationName: conv.displayName,
+                        matches
+                    });
+                }
+
+                // Limit total results for performance
+                if (results.length >= 20) break;
+            }
+
+            displaySearchResults(results);
+        }
+
+        function displaySearchResults(results) {
+            const container = document.getElementById('searchResults');
+            
+            if (!results.length) {
+                container.style.display = 'none';
+                return;
+            }
+
+            container.innerHTML = results.map(result => `
+                <div class="search-result-item" onclick="showSearchResult('${result.conversationId}', '${result.matches[0].id}')">
+                    <div class="search-result-conversation">${result.conversationName}</div>
+                    <div class="search-result-preview">${result.matches[0].content}</div>
+                </div>
+            `).join('');
+
+            container.style.display = 'block';
+        }
+
+        function showSearchResult(conversationId, messageId) {
+            document.getElementById('searchResults').style.display = 'none';
+            document.getElementById('globalSearch').value = '';
+            
+            showConversation(conversationId, 1);
+            
+            // Scroll to message after render
+            setTimeout(() => {
+                const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+                if (messageElement) {
+                    messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    messageElement.style.animation = 'highlight 2s';
+                }
+            }, 100);
+        }
+
+        // Update the message rendering to include message ID
+        function renderMessages(messages) {
+            return messages.map(msg => `
+                <div class="message ${msg.from === currentUserId ? 'sent' : 'received'}" data-message-id="${msg.id}">
+                    <div class="message-time">${new Date(msg.time).toLocaleString()}</div>
+                    <div class="message-content">${msg.content}</div>
+                </div>
+            `).join('');
+        }
+
+        // Add event listener for search
+        document.getElementById('globalSearch').addEventListener('input', 
+            debounce(e => performSearch(e.target.value), 300)
+        );
+
+        // Close search results when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.search-container')) {
+                document.getElementById('searchResults').style.display = 'none';
+            }
+        });
     </script>
 </body>
 </html>
