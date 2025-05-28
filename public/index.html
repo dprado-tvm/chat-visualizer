@@ -186,6 +186,22 @@
                 cursor: pointer;
             }
         }
+
+        .messages-container {
+            height: 100%;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .load-more {
+            padding: 0.5rem;
+            background: #f5f5f5;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            margin: 1rem 0;
+        }
     </style>
 </head>
 <body>
@@ -211,8 +227,11 @@
     </div>
 
     <script>
+        const MESSAGES_PER_PAGE = 50;
+        let currentPage = 1;
         let currentUserId = '';
         let allConversations = [];
+        let currentConversationId = null;
         const fileInput = document.getElementById('fileInput');
         const uploadButton = document.getElementById('uploadButton');
         const uploadForm = document.getElementById('uploadForm');
@@ -286,9 +305,12 @@
             `;
         }
 
-        function showConversation(conversationId) {
+        function showConversation(conversationId, page = 1) {
             const conversation = allConversations.find(c => c.id === conversationId);
             if (!conversation) return;
+
+            currentConversationId = conversationId;
+            currentPage = page;
 
             const messagesContainer = document.getElementById('messages');
             const conversationList = document.querySelector('.conversation-list');
@@ -299,15 +321,36 @@
                 messagesContainer.classList.add('active');
             }
 
-            messagesContainer.innerHTML = `
-                ${window.innerWidth <= 768 ? '<button class="back-button" onclick="showConversationList()">← Back to Conversations</button>' : ''}
-                ${conversation.messages.map(msg => `
-                    <div class="message ${msg.from === currentUserId ? 'sent' : 'received'}">
-                        <div class="message-time">${new Date(msg.time).toLocaleString()}</div>
-                        <div class="message-content">${msg.content}</div>
+            // Calculate pagination
+            const startIndex = 0;
+            const endIndex = page * MESSAGES_PER_PAGE;
+            const hasMoreMessages = conversation.messages.length > endIndex;
+            
+            const messagesToShow = conversation.messages.slice(startIndex, endIndex);
+
+            if (page === 1) {
+                messagesContainer.innerHTML = `
+                    <div class="messages-container" id="messagesWrapper">
+                        ${window.innerWidth <= 768 ? '<button class="back-button" onclick="showConversationList()">← Back to Conversations</button>' : ''}
+                        ${renderMessages(messagesToShow)}
+                        ${hasMoreMessages ? `<button class="load-more" onclick="loadMoreMessages()">Load More Messages</button>` : ''}
                     </div>
-                `).join('')}
-            `;
+                `;
+            } else {
+                const wrapper = document.getElementById('messagesWrapper');
+                const loadMoreButton = wrapper.querySelector('.load-more');
+                const newMessages = renderMessages(messagesToShow);
+                
+                if (loadMoreButton) {
+                    loadMoreButton.insertAdjacentHTML('beforebegin', newMessages);
+                } else {
+                    wrapper.insertAdjacentHTML('beforeend', newMessages);
+                }
+                
+                if (!hasMoreMessages && loadMoreButton) {
+                    loadMoreButton.remove();
+                }
+            }
 
             // Mark active conversation
             document.querySelectorAll('.conversation-item').forEach(item => {
@@ -318,12 +361,45 @@
             });
         }
 
+        function renderMessages(messages) {
+            return messages.map(msg => `
+                <div class="message ${msg.from === currentUserId ? 'sent' : 'received'}">
+                    <div class="message-time">${new Date(msg.time).toLocaleString()}</div>
+                    <div class="message-content">${msg.content}</div>
+                </div>
+            `).join('');
+        }
+
+        function loadMoreMessages() {
+            if (currentConversationId) {
+                currentPage++;
+                showConversation(currentConversationId, currentPage);
+            }
+        }
+
         function showConversationList() {
             const messagesContainer = document.getElementById('messages');
             const conversationList = document.querySelector('.conversation-list');
             
             messagesContainer.classList.remove('active');
             conversationList.classList.add('active');
+        }
+
+        // Add this intersection observer to implement infinite scroll (optional)
+        let observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const loadMoreButton = entry.target;
+                    loadMoreButton.click();
+                }
+            });
+        }, { threshold: 0.5 });
+
+        // Optional: Update showConversation to use infinite scroll
+        // Add this at the end of the showConversation function
+        const loadMoreButton = document.querySelector('.load-more');
+        if (loadMoreButton) {
+            observer.observe(loadMoreButton);
         }
     </script>
 </body>
