@@ -1,0 +1,63 @@
+{
+  "conversations": [
+    {
+      "id": "1",
+      "participants": [
+        {
+          "id": "user1",
+          "name": "Alice",
+          "email": "alice@example.com"
+        },
+        {
+          "id": "user2",
+          "name": "Bob",
+          "email": "bob@example.com"
+        }
+      ],
+      "messages": [
+        {
+          "sender": "user1",
+          "content": "Hey Bob, how are you?",
+          "timestamp": "2023-01-01T10:00:00Z"
+        },
+        {
+          "sender": "user2",
+          "content": "I'm good, thanks! How about you?",
+          "timestamp": "2023-01-01T10:01:00Z"
+        },
+        {
+          "sender": "user1",
+          "content": "Doing well! Just working on a project.",
+          "timestamp": "2023-01-01T10:02:00Z"
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "participants": [
+        {
+          "id": "user3",
+          "name": "Charlie",
+          "email": "charlie@example.com"
+        },
+        {
+          "id": "user4",
+          "name": "Diana",
+          "email": "diana@example.com"
+        }
+      ],
+      "messages": [
+        {
+          "sender": "user3",
+          "content": "Did you finish the report?",
+          "timestamp": "2023-01-02T11:00:00Z"
+        },
+        {
+          "sender": "user4",
+          "content": "Yes, I sent it over yesterday.",
+          "timestamp": "2023-01-02T11:01:00Z"
+        }
+      ]
+    }
+  ]
+}
