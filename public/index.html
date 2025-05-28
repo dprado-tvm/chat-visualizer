@@ -224,6 +224,12 @@
             text-align: center;
         }
 
+        .loader-details {
+            color: #666;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -282,12 +288,35 @@
             0% { background-color: yellow; }
             100% { background-color: inherit; }
         }
+
+        .delete-button {
+            padding: 0.5rem 1rem;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: auto;
+            font-size: 0.9rem;
+            display: none; /* Hidden by default */
+        }
+
+        .delete-button:hover {
+            background: #c82333;
+        }
+
+        .delete-button.visible {
+            display: block;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/lz-string@1.4.4/libs/lz-string.min.js"></script>
 </head>
 <body>
     <header>
         <h1>Chat Visualizer</h1>
+        <button id="deleteButton" class="delete-button">
+            Delete Saved Conversation
+        </button>
     </header>
     
     <div class="upload-container">
@@ -315,6 +344,7 @@
     <div class="loader-container" id="loader">
         <div class="loader"></div>
         <p class="loader-message" id="loaderMessage">Processing your file...</p>
+        <p class="loader-details" id="loaderDetails"></p>
     </div>
 
     <script>
@@ -378,31 +408,6 @@
             } catch (error) {
                 console.error('Load error:', error);
                 return null;
-            }
-        }
-
-        async function cleanupOldData() {
-            try {
-                const MAX_AGE_DAYS = 30;
-                const now = new Date();
-                
-                const db = await initDB();
-                const transaction = db.transaction([STORE_NAME], 'readwrite');
-                const store = transaction.objectStore(STORE_NAME);
-
-                const all = await new Promise((resolve) => {
-                    const request = store.getAll();
-                    request.onsuccess = () => resolve(request.result);
-                });
-
-                for (const item of all) {
-                    const ageInDays = (now - new Date(item.timestamp)) / (1000 * 60 * 60 * 24);
-                    if (ageInDays > MAX_AGE_DAYS) {
-                        store.delete(item.hash);
-                    }
-                }
-            } catch (error) {
-                console.error('Cleanup error:', error);
             }
         }
 
@@ -498,49 +503,80 @@
             const file = fileInput.files[0];
             if (!file) return;
 
-            // Show loader
+            const loader = document.getElementById('loader');
+            const loaderMessage = document.getElementById('loaderMessage');
+            const loaderDetails = document.getElementById('loaderDetails');
             loader.style.display = 'flex';
             uploadButton.disabled = true;
 
             const reader = new FileReader();
             reader.onload = async (e) => {
                 try {
+                    loaderMessage.textContent = 'Parsing file...';
                     const content = e.target.result;
                     const data = JSON.parse(content);
                     currentUserId = data.userId;
                     
-                    const response = await fetch('/upload', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(data)
+                    // Process conversations in chunks
+                    loaderMessage.textContent = 'Processing conversations...';
+                    const conversations = data.conversations;
+                    const processedConversations = [];
+                    const totalConversations = conversations.length;
+                    const chunkSize = 50;
+                    let processedCount = 0;
+                    
+                    for (let i = 0; i < conversations.length; i += chunkSize) {
+                        const chunk = conversations.slice(i, i + chunkSize);
+                        
+                        // Process chunk
+                        const processedChunk = chunk.map(conv => ({
+                            id: conv.id,
+                            displayName: conv.displayName,
+                            messages: conv.MessageList.map(msg => ({
+                                id: msg.id,
+                                time: msg.originalarrivaltime,
+                                content: msg.content,
+                                from: msg.from,
+                                type: msg.messagetype
+                            }))
+                        }));
+                        
+                        processedConversations.push(...processedChunk);
+                        processedCount += chunk.length;
+                        
+                        // Update progress
+                        const progress = Math.min(Math.round((processedCount / totalConversations) * 100), 99);
+                        loaderDetails.textContent = `${progress}% (${processedCount}/${totalConversations} conversations)`;
+                        
+                        // Allow UI to update
+                        await new Promise(resolve => setTimeout(resolve, 10));
+                    }
+                    
+                    loaderMessage.textContent = 'Saving conversations...';
+                    loaderDetails.textContent = '99% - Almost done...';
+                    
+                    const hash = generateHash();
+                    const stored = await storeConversationData(hash, {
+                        userId: currentUserId,
+                        conversations: processedConversations,
+                        timestamp: new Date().toISOString()
                     });
                     
-                    const result = await response.json();
-                    // Replace the existing form submission success handler
-                    if (result.success) {
-                        const hash = generateHash();
-                        const stored = await storeConversationData(hash, {
-                            userId: currentUserId,
-                            conversations: result.conversations,
-                            timestamp: new Date().toISOString()
-                        });
+                    if (stored) {
+                        loaderDetails.textContent = '100% - Complete!';
+                        await new Promise(resolve => setTimeout(resolve, 500)); // Show completion message briefly
                         
-                        if (stored) {
-                            window.location.hash = hash;
-                            allConversations = result.conversations;
-                            displayConversationList(result.conversations);
-                            document.querySelector('.upload-container').style.display = 'none';
-                        } else {
-                            alert('Error: Failed to store data locally');
-                        }
+                        window.location.hash = hash;
+                        allConversations = processedConversations;
+                        displayConversationList(processedConversations);
+                        document.querySelector('.upload-container').style.display = 'none';
+                        document.getElementById('deleteButton').classList.add('visible');
                     } else {
-                        alert('Error processing file');
+                        alert('Error: Failed to store data locally');
                     }
                 } catch (error) {
                     console.error('Error:', error);
-                    alert('Error uploading file');
+                    alert('Error uploading file: ' + error.message);
                 } finally {
                     loader.style.display = 'none';
                     uploadButton.disabled = false;
@@ -773,6 +809,47 @@
             }
         });
 
+        async function deleteStoredConversation(hash) {
+            try {
+                const db = await initDB();
+                const transaction = db.transaction([STORE_NAME], 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                
+                await new Promise((resolve, reject) => {
+                    const request = store.delete(hash);
+                    request.onsuccess = () => resolve();
+                    request.onerror = () => reject(request.error);
+                });
+
+                // Clear hash from URL
+                window.location.hash = '';
+                
+                // Reset UI
+                document.querySelector('.upload-container').style.display = 'block';
+                document.getElementById('conversations').innerHTML = '';
+                document.getElementById('deleteButton').classList.remove('visible');
+                
+                // Reset data
+                currentUserId = '';
+                allConversations = [];
+                
+                return true;
+            } catch (error) {
+                console.error('Delete error:', error);
+                return false;
+            }
+        }
+
+        // Add the delete button event listener
+        document.getElementById('deleteButton').addEventListener('click', async () => {
+            if (confirm('Are you sure you want to delete this conversation? This cannot be undone.')) {
+                const hash = window.location.hash.slice(1);
+                if (hash) {
+                    await deleteStoredConversation(hash);
+                }
+            }
+        });
+
         window.addEventListener('load', async () => {
             const hash = window.location.hash.slice(1);
             if (hash) {
@@ -791,6 +868,10 @@
                         currentUserId = data.userId;
                         allConversations = data.conversations;
                         displayConversationList(data.conversations);
+                        // Add small delay to ensure DOM is ready
+                        setTimeout(() => {
+                            document.getElementById('deleteButton').classList.add('visible');
+                        }, 100);
                     } else {
                         document.querySelector('.upload-container').style.display = 'block';
                         alert('Could not find the saved conversations. Please upload the file again.');
@@ -804,9 +885,6 @@
                     loader.style.display = 'none';
                 }
             }
-            
-            // Run cleanup on load
-            cleanupOldData();
         });
     </script>
 </body>
