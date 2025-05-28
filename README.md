@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Chat Visualizer
 
 Chat Visualizer is a web application that allows users to upload and visualize historical conversations exported from Microsoft services. The application processes a JSON file containing conversation data and presents it in a user-friendly format.
