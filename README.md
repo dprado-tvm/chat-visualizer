@@ -1,67 +1,73 @@
-<<<<<<< HEAD
 # Chat Visualizer
 
-Chat Visualizer is a web application that allows users to upload and visualize historical conversations exported from Microsoft services. The application processes a JSON file containing conversation data and presents it in a user-friendly format.
+A web-based tool for visualizing Skype/Teams chat exports.
 
 ## Features
+- Load and visualize Skype/Teams chat exports
+- Search through all conversations
+- Virtual scrolling for better performance
+- Mobile-responsive design
+- Local storage of conversations
+- Shareable URLs (data stays in your browser)
 
-- Upload JSON files containing historical conversations.
-- Display a list of conversations with participants.
-- View individual messages within each conversation.
+## Getting Started
 
-## Project Structure
-
-```
-chat-visualizer
-├── src
-│   ├── app.ts                # Entry point of the application
-│   ├── models
-│   │   ├── conversation.ts    # Conversation model
-│   │   ├── message.ts         # Message model
-│   │   └── user.ts            # User model
-│   ├── services
-│   │   ├── file-reader.ts     # File reading service
-│   │   └── json-parser.ts     # JSON parsing service
-│   ├── views
-│   │   ├── conversation-list.ts # View for displaying conversations
-│   │   └── message-view.ts     # View for displaying messages
-│   └── types
-│       └── index.ts           # Type definitions
-├── test
-│   └── __mocks__
-│       └── sample-conversation.json # Sample conversation data for testing
-├── package.json               # Project dependencies and scripts
-├── tsconfig.json              # TypeScript configuration
-└── README.md                  # Project documentation
+### Installation
+1. Clone this repository:
+```bash
+git clone https://github.com/yourusername/chat-visualizer.git
+cd chat-visualizer
 ```
 
-## Setup Instructions
+2. Install dependencies:
+```bash
+npm install
+```
 
-1. Clone the repository:
-   ```
-   git clone <repository-url>
-   ```
+### Running the Application
+1. Start the local server:
+```bash
+npm start
+```
 
-2. Navigate to the project directory:
-   ```
-   cd chat-visualizer
-   ```
+2. Open http://localhost:3000 in your browser
 
-3. Install dependencies:
-   ```
-   npm install
-   ```
+### Generating Sample Data
+To try the application with sample data:
 
-4. Run the application:
-   ```
-   npm start
-   ```
+1. Generate the sample file:
+```bash
+node scripts/generate-sample.js
+```
 
-## Usage
+2. This will create a `sample-data.json` file in the `public` directory
+3. Open the application in your browser
+4. Upload the generated `sample-data.json` file
 
-- Upload a JSON file containing conversation data.
-- Navigate through the list of conversations and view messages.
+The sample data includes:
+- 50 different conversations
+- 100-500 messages per conversation
+- 20 different users and 2 bots
+- Realistic timestamps and message content
+- About 30MB of sample data
 
-## Contributing
+### Using Your Own Data
+- Export your Skype/Teams chat history as JSON
+- Upload the JSON file to the application
+- The data stays in your browser's storage
+- Use the generated URL to access your conversations later
 
-Contributions are welcome! Please open an issue or submit a pull request for any enhancements or bug fixes.
+## Privacy
+- All data is stored locally in your browser
+- No data is sent to any server
+- Conversations are only accessible through your browser
+- Use the Delete button to remove stored conversations
+
+## Browser Support
+- Chrome (recommended)
+- Firefox
+- Safari
+- Edge
+
+## License
+MIT
