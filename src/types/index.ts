@@ -1,17 +1,40 @@
+export interface ChatExport {
+    userId: string;
+    exportDate: string;
+    conversations: Conversation[];
+}
+
 export interface Conversation {
     id: string;
-    participants: User[];
-    messages: Message[];
+    displayName: string;
+    version: number;
+    properties: ConversationProperties;
+    threadProperties: any;
+    MessageList: Message[];
+}
+
+export interface ConversationProperties {
+    conversationblocked: boolean;
+    lastimreceivedtime: string;
+    consumptionhorizon: string;
+    conversationstatus: string;
 }
 
 export interface Message {
-    sender: User;
+    id: string;
+    displayName: string | null;
+    originalarrivaltime: string;
+    messagetype: string;
+    version: number;
     content: string;
-    timestamp: Date;
+    conversationid: string;
+    from: string;
+    properties: MessageProperties;
 }
 
-export interface User {
-    id: string;
-    name: string;
-    email: string;
+export interface MessageProperties {
+    importance: string;
+    onbehalfof: string;
+    formatVariant: string;
+    mentions: string;
 }

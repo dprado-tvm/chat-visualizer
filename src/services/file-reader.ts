@@ -1,12 +1,23 @@
-export function readFile(file: File): Promise<string> {
+import { ChatExport } from '../types';
+
+export const readJsonFile = (file: File): Promise<ChatExport> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
+        
         reader.onload = (event) => {
-            resolve(event.target?.result as string);
+            try {
+                const content = event.target?.result as string;
+                const data = JSON.parse(content) as ChatExport;
+                resolve(data);
+            } catch (error) {
+                reject(new Error('Failed to parse JSON file'));
+            }
         };
-        reader.onerror = (error) => {
-            reject(error);
+
+        reader.onerror = () => {
+            reject(new Error('Failed to read file'));
         };
+
         reader.readAsText(file);
     });
-}
+};
