@@ -278,6 +278,7 @@
             100% { background-color: inherit; }
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/lz-string@1.4.4/libs/lz-string.min.js"></script>
 </head>
 <body>
     <header>
@@ -312,6 +313,162 @@
     </div>
 
     <script>
+        const DB_NAME = 'ChatVisualizerDB';
+        const STORE_NAME = 'conversations';
+        const DB_VERSION = 1;
+
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => resolve(request.result);
+
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME, { keyPath: 'hash' });
+                    }
+                };
+            });
+        }
+
+        async function storeConversationData(hash, data) {
+            try {
+                const db = await initDB();
+                const transaction = db.transaction([STORE_NAME], 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+
+                await new Promise((resolve, reject) => {
+                    const request = store.put({
+                        hash,
+                        data: LZString.compressToUTF16(JSON.stringify(data)),
+                        timestamp: new Date().toISOString()
+                    });
+                    request.onsuccess = () => resolve();
+                    request.onerror = () => reject(request.error);
+                });
+
+                return true;
+            } catch (error) {
+                console.error('Storage error:', error);
+                return false;
+            }
+        }
+
+        async function loadConversationData(hash) {
+            try {
+                const db = await initDB();
+                const transaction = db.transaction([STORE_NAME], 'readonly');
+                const store = transaction.objectStore(STORE_NAME);
+
+                const result = await new Promise((resolve, reject) => {
+                    const request = store.get(hash);
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+
+                if (!result) return null;
+                return JSON.parse(LZString.decompressFromUTF16(result.data));
+            } catch (error) {
+                console.error('Load error:', error);
+                return null;
+            }
+        }
+
+        async function cleanupOldData() {
+            try {
+                const MAX_AGE_DAYS = 30;
+                const now = new Date();
+                
+                const db = await initDB();
+                const transaction = db.transaction([STORE_NAME], 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+
+                const all = await new Promise((resolve) => {
+                    const request = store.getAll();
+                    request.onsuccess = () => resolve(request.result);
+                });
+
+                for (const item of all) {
+                    const ageInDays = (now - new Date(item.timestamp)) / (1000 * 60 * 60 * 24);
+                    if (ageInDays > MAX_AGE_DAYS) {
+                        store.delete(item.hash);
+                    }
+                }
+            } catch (error) {
+                console.error('Cleanup error:', error);
+            }
+        }
+
+        function generateHash() {
+            return Math.random().toString(36).substring(2, 15) + 
+                   Math.random().toString(36).substring(2, 15);
+        }
+
+        // Add these helper functions after generateHash()
+        function storeChunkedData(hash, data) {
+            const compressed = LZString.compressToUTF16(JSON.stringify(data));
+            const chunkSize = 1024 * 1024; // 1MB chunks
+            const chunks = Math.ceil(compressed.length / chunkSize);
+            
+            try {
+                // Store metadata
+                localStorage.setItem(`chat_${hash}_meta`, JSON.stringify({
+                    chunks,
+                    timestamp: new Date().toISOString(),
+                    userId: data.userId
+                }));
+                
+                // Store chunks
+                for (let i = 0; i < chunks; i++) {
+                    const chunk = compressed.slice(i * chunkSize, (i + 1) * chunkSize);
+                    localStorage.setItem(`chat_${hash}_${i}`, chunk);
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('Storage error:', error);
+                // Cleanup on failure
+                cleanupChatData(hash);
+                return false;
+            }
+        }
+
+        function loadChunkedData(hash) {
+            try {
+                const meta = JSON.parse(localStorage.getItem(`chat_${hash}_meta`));
+                if (!meta) return null;
+                
+                let compressed = '';
+                for (let i = 0; i < meta.chunks; i++) {
+                    const chunk = localStorage.getItem(`chat_${hash}_${i}`);
+                    if (!chunk) throw new Error('Missing chunk');
+                    compressed += chunk;
+                }
+                
+                const data = JSON.parse(LZString.decompressFromUTF16(compressed));
+                return data;
+            } catch (error) {
+                console.error('Load error:', error);
+                return null;
+            }
+        }
+
+        function cleanupChatData(hash) {
+            try {
+                const meta = JSON.parse(localStorage.getItem(`chat_${hash}_meta`));
+                if (meta) {
+                    for (let i = 0; i < meta.chunks; i++) {
+                        localStorage.removeItem(`chat_${hash}_${i}`);
+                    }
+                }
+                localStorage.removeItem(`chat_${hash}_meta`);
+            } catch (error) {
+                console.error('Cleanup error:', error);
+            }
+        }
+
         const MESSAGES_PER_PAGE = 50;
         const ITEMS_PER_PAGE = 50;
         const ITEM_HEIGHT = 60;
@@ -356,9 +513,23 @@
                     });
                     
                     const result = await response.json();
+                    // Replace the existing form submission success handler
                     if (result.success) {
-                        allConversations = result.conversations;
-                        displayConversationList(result.conversations);
+                        const hash = generateHash();
+                        const stored = await storeConversationData(hash, {
+                            userId: currentUserId,
+                            conversations: result.conversations,
+                            timestamp: new Date().toISOString()
+                        });
+                        
+                        if (stored) {
+                            window.location.hash = hash;
+                            allConversations = result.conversations;
+                            displayConversationList(result.conversations);
+                            document.querySelector('.upload-container').style.display = 'none';
+                        } else {
+                            alert('Error: Failed to store data locally');
+                        }
                     } else {
                         alert('Error processing file');
                     }
@@ -366,7 +537,6 @@
                     console.error('Error:', error);
                     alert('Error uploading file');
                 } finally {
-                    // Hide loader
                     loader.style.display = 'none';
                     uploadButton.disabled = false;
                 }
@@ -596,6 +766,26 @@
             if (!e.target.closest('.search-container')) {
                 document.getElementById('searchResults').style.display = 'none';
             }
+        });
+
+        window.addEventListener('load', async () => {
+            const hash = window.location.hash.slice(1);
+            if (hash) {
+                const data = await loadConversationData(hash);
+                if (data) {
+                    try {
+                        currentUserId = data.userId;
+                        allConversations = data.conversations;
+                        displayConversationList(data.conversations);
+                        document.querySelector('.upload-container').style.display = 'none';
+                    } catch (error) {
+                        console.error('Error loading stored data:', error);
+                    }
+                }
+            }
+            
+            // Run cleanup on load
+            cleanupOldData();
         });
     </script>
 </body>
