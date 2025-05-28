@@ -201,13 +201,12 @@
             right: 0;
             bottom: 0;
             background: rgba(255, 255, 255, 0.9);
-            display: flex;
+            display: none;
             justify-content: center;
             align-items: center;
             flex-direction: column;
             gap: 1rem;
             z-index: 1000;
-            display: none;
         }
 
         .loader {
@@ -217,6 +216,12 @@
             border-top: 5px solid #0078d4;
             border-radius: 50%;
             animation: spin 1s linear infinite;
+        }
+
+        .loader-message {
+            color: #333;
+            font-size: 1rem;
+            text-align: center;
         }
 
         @keyframes spin {
@@ -309,7 +314,7 @@
 
     <div class="loader-container" id="loader">
         <div class="loader"></div>
-        <p>Processing your file...</p>
+        <p class="loader-message" id="loaderMessage">Processing your file...</p>
     </div>
 
     <script>
@@ -771,16 +776,32 @@
         window.addEventListener('load', async () => {
             const hash = window.location.hash.slice(1);
             if (hash) {
-                const data = await loadConversationData(hash);
-                if (data) {
-                    try {
+                // Show loader
+                const loader = document.getElementById('loader');
+                const loaderMessage = document.getElementById('loaderMessage');
+                loaderMessage.textContent = 'Loading conversations...';
+                loader.style.display = 'flex';
+                
+                // Hide upload container immediately
+                document.querySelector('.upload-container').style.display = 'none';
+
+                try {
+                    const data = await loadConversationData(hash);
+                    if (data) {
                         currentUserId = data.userId;
                         allConversations = data.conversations;
                         displayConversationList(data.conversations);
-                        document.querySelector('.upload-container').style.display = 'none';
-                    } catch (error) {
-                        console.error('Error loading stored data:', error);
+                    } else {
+                        document.querySelector('.upload-container').style.display = 'block';
+                        alert('Could not find the saved conversations. Please upload the file again.');
                     }
+                } catch (error) {
+                    console.error('Error loading stored data:', error);
+                    document.querySelector('.upload-container').style.display = 'block';
+                    alert('Error loading conversations. Please try uploading the file again.');
+                } finally {
+                    // Hide loader
+                    loader.style.display = 'none';
                 }
             }
             
