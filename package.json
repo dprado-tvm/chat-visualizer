@@ -21,5 +21,20 @@
     "ts-jest": "^26.5.0"
   },
   "author": "Your Name",
-  "license": "MIT"
+  "license": "MIT",
+  "baseUrl": ".",
+  "scripts": {
+    "start": "ts-node src/app.ts",
+    "test": "jest",
+    "deploy": "NODE_ENV=production node scripts/deploy.js",
+    "prestart": "tsc -p tsconfig.json",
+    "poststart": "node dist/app.js"
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/*.spec.ts"
+  ]
 }
