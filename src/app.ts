@@ -12,6 +12,12 @@ app.use(express.json({ limit: '200mb' })); // Increased limit for large JSON fil
 app.use(express.static('public'));
 app.use(express.urlencoded({ extended: true }));
 
+// Add base path middleware
+app.use((req, res, next) => {
+    res.locals.basePath = process.env.NODE_ENV === 'production' ? '/chat-visualizer-1' : '';
+    next();
+});
+
 // Routes
 app.get('/', (req: Request, res: Response) => {
     res.sendFile(path.join(__dirname, '../public/index.html'));
