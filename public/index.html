@@ -742,7 +742,12 @@
             
             for (const conv of allConversations) {
                 const matches = conv.messages
-                    .filter(msg => msg.content.toLowerCase().includes(searchTerm))
+                    .filter(msg => {
+                        // Check if content exists and is a string
+                        return msg.content && 
+                               typeof msg.content === 'string' && 
+                               msg.content.toLowerCase().includes(searchTerm);
+                    })
                     .slice(0, 3); // Limit matches per conversation
 
                 if (matches.length > 0) {
@@ -894,11 +899,13 @@
             }
         });
 
-        // Set base URL dynamically
+        const baseUrlElement = document.getElementById('baseUrl');
         const isGitHubPages = window.location.hostname.includes('github.io');
-        document.getElementById('baseUrl').href = isGitHubPages ? '/chat-visualizer-1/' : '/';
+
+        if (baseUrlElement) {
+            baseUrlElement.href = isGitHubPages ? '/chat-visualizer-1/' : '/';
+        }
     </script>
     <base id="baseUrl">
-    <script src="script.js"></script>
 </body>
 </html>

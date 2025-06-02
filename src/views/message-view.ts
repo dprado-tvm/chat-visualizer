@@ -1,4 +1,15 @@
-export function renderMessageView(conversation) {
+import { Conversation, Message } from '../models/conversation';
+
+interface MessageViewConversation {
+    participants: string[];
+    messages: {
+        sender: string;
+        content: string;
+        timestamp: string;
+    }[];
+}
+
+export function renderMessageView(conversation: MessageViewConversation): HTMLElement {
     const messageContainer = document.createElement('div');
     messageContainer.classList.add('message-view');
 
