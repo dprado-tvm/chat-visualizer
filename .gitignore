@@ -26,3 +26,8 @@ coverage/
 # Logs
 logs/
 *.log
+
+# Generated files
+docs/sample-data.json
+public/sample-data.json
+*.json.gz
